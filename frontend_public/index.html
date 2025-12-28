@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NominaPlus - Mis Pagos</title>
+    <link rel="stylesheet" href="/public/static/css/public.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-calculator"></i> NominaPlus</h1>
+            <p class="subtitle">Consulta tus pagos y recibos</p>
+        </header>
+
+        <main class="main-content">
+            <!-- Login/Access Section -->
+            <div id="accessSection" class="card">
+                <h2>Acceso a Mi Información</h2>
+                <form id="accessForm">
+                    <div class="form-group">
+                        <label for="dni">DNI o Número de Identificación</label>
+                        <input type="text" id="dni" name="dni" required placeholder="Ingresa tu DNI">
+                    </div>
+                    <div class="form-group">
+                        <label for="accessCode">Código de Acceso</label>
+                        <input type="password" id="accessCode" name="accessCode" required placeholder="Ingresa tu código de acceso">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Acceder
+                    </button>
+                </form>
+            </div>
+
+            <!-- Employee Dashboard -->
+            <div id="employeeDashboard" class="dashboard hidden">
+                <div class="welcome-section">
+                    <h2>Bienvenido, <span id="employeeName"></span></h2>
+                    <p id="employeePosition"></p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalPayrollsCount">0</h3>
+                            <p>Nóminas Disponibles</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalEarnings">Q 0.00</h3>
+                            <p>Total Ganado</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Mis Nóminas</h3>
+                    <div id="payrollsList" class="payrolls-list">
+                        <p class="loading">Cargando nóminas...</p>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Mis Asistencias</h3>
+                    <div class="filters">
+                        <input type="month" id="attendanceMonth" class="date-input">
+                        <button class="btn btn-secondary" id="filterAttendancesBtn">Filtrar</button>
+                    </div>
+                    <div id="attendancesList" class="attendances-list">
+                        <p class="loading">Cargando asistencias...</p>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <button class="btn btn-secondary" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2024 NominaPlus. Todos los derechos reservados.</p>
+        </footer>
+    </div>
+
+    <!-- Payroll Detail Modal -->
+    <div id="payrollModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Detalle de Nómina</h3>
+                <button class="modal-close" id="closePayrollModal">&times;</button>
+            </div>
+            <div class="modal-body" id="payrollDetail">
+                <!-- Payroll details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="/public/static/js/public.js"></script>
+</body>
+</html>
+

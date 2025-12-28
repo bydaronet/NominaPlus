@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NominaPlus - Sistema de Nómina</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h1><i class="fas fa-calculator"></i> NominaPlus</h1>
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                <i class="fas fa-home"></i> <span>Dashboard</span>
+            </a>
+            <a href="#employees" class="nav-item" data-page="employees">
+                <i class="fas fa-users"></i> <span>Empleados</span>
+            </a>
+            <a href="#attendances" class="nav-item" data-page="attendances">
+                <i class="fas fa-clock"></i> <span>Asistencias</span>
+            </a>
+            <a href="#payrolls" class="nav-item" data-page="payrolls">
+                <i class="fas fa-file-invoice-dollar"></i> <span>Nóminas</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <button class="menu-toggle" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h2 id="pageTitle">Dashboard</h2>
+            <div class="user-info">
+                <span><i class="fas fa-user-circle"></i> Administrador</span>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <div class="content-wrapper">
+            <!-- Dashboard Page -->
+            <div id="dashboard" class="page active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalEmployees">0</h3>
+                            <p>Empleados Activos</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalPayrolls">0</h3>
+                            <p>Nóminas del Mes</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orange">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalPaid">Q 0.00</h3>
+                            <p>Total Pagado</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalAttendances">0</h3>
+                            <p>Asistencias del Mes</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="recent-section">
+                    <h3>Actividad Reciente</h3>
+                    <div id="recentActivity" class="activity-list">
+                        <p class="loading">Cargando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employees Page -->
+            <div id="employees" class="page">
+                <div class="page-header">
+                    <h2>Gestión de Empleados</h2>
+                    <button class="btn btn-primary" id="addEmployeeBtn">
+                        <i class="fas fa-plus"></i> Nuevo Empleado
+                    </button>
+                </div>
+                <div class="filters">
+                    <input type="text" id="employeeSearch" placeholder="Buscar empleado..." class="search-input">
+                    <select id="employeeFilter" class="filter-select">
+                        <option value="">Todos</option>
+                        <option value="true">Activos</option>
+                        <option value="false">Inactivos</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>DNI</th>
+                                <th>Posición</th>
+                                <th>Tarifa/Hora</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeesTableBody">
+                            <tr>
+                                <td colspan="7" class="loading">Cargando empleados...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Attendances Page -->
+            <div id="attendances" class="page">
+                <div class="page-header">
+                    <h2>Control de Asistencias</h2>
+                    <button class="btn btn-primary" id="addAttendanceBtn">
+                        <i class="fas fa-plus"></i> Registrar Asistencia
+                    </button>
+                </div>
+                <div class="filters">
+                    <select id="attendanceEmployeeFilter" class="filter-select">
+                        <option value="">Todos los empleados</option>
+                    </select>
+                    <input type="date" id="attendanceStartDate" class="date-input">
+                    <input type="date" id="attendanceEndDate" class="date-input">
+                    <button class="btn btn-secondary" id="filterAttendancesBtn">Filtrar</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Empleado</th>
+                                <th>Fecha</th>
+                                <th>Entrada</th>
+                                <th>Salida</th>
+                                <th>Horas</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendancesTableBody">
+                            <tr>
+                                <td colspan="6" class="loading">Cargando asistencias...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Payrolls Page -->
+            <div id="payrolls" class="page">
+                <div class="page-header">
+                    <h2>Gestión de Nóminas</h2>
+                    <button class="btn btn-primary" id="addPayrollBtn">
+                        <i class="fas fa-plus"></i> Nueva Nómina
+                    </button>
+                </div>
+                <div class="filters">
+                    <select id="payrollEmployeeFilter" class="filter-select">
+                        <option value="">Todos los empleados</option>
+                    </select>
+                    <input type="month" id="payrollPeriod" class="date-input">
+                    <select id="payrollStatusFilter" class="filter-select">
+                        <option value="">Todos los estados</option>
+                        <option value="pending">Pendiente</option>
+                        <option value="confirmed">Confirmado</option>
+                        <option value="paid">Pagado</option>
+                    </select>
+                    <button class="btn btn-secondary" id="filterPayrollsBtn">Filtrar</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Empleado</th>
+                                <th>Período</th>
+                                <th>Horas</th>
+                                <th>Salario Base</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="payrollsTableBody">
+                            <tr>
+                                <td colspan="7" class="loading">Cargando nóminas...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <!-- Employee Modal -->
+    <div id="employeeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="employeeModalTitle">Nuevo Empleado</h3>
+                <button class="modal-close" id="closeEmployeeModal">&times;</button>
+            </div>
+            <form id="employeeForm" class="modal-body">
+                <input type="hidden" id="employeeId">
+                <div class="form-group">
+                    <label>Nombre Completo *</label>
+                    <input type="text" id="employeeName" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>DNI *</label>
+                        <input type="text" id="employeeDni" required>
+                    </div>
+                    <div class="form-group">
+                        <label>NIT</label>
+                        <input type="text" id="employeeNit">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Posición *</label>
+                    <input type="text" id="employeePosition" required>
+                </div>
+                <div class="form-group">
+                    <label>Tarifa por Hora (Q) *</label>
+                    <input type="number" id="employeeHourlyRate" step="0.01" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="text" id="employeePhone">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="employeeEmail">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Dirección</label>
+                    <textarea id="employeeAddress" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Cuenta Bancaria</label>
+                    <input type="text" id="employeeBankAccount">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="employeeIsActive" checked>
+                        Empleado Activo
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelEmployeeBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Attendance Modal -->
+    <div id="attendanceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="attendanceModalTitle">Registrar Asistencia</h3>
+                <button class="modal-close" id="closeAttendanceModal">&times;</button>
+            </div>
+            <form id="attendanceForm" class="modal-body">
+                <input type="hidden" id="attendanceId">
+                <div class="form-group">
+                    <label>Empleado *</label>
+                    <select id="attendanceEmployeeId" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Fecha *</label>
+                    <input type="date" id="attendanceDate" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Hora de Entrada *</label>
+                        <input type="time" id="attendanceInTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Hora de Salida</label>
+                        <input type="time" id="attendanceOutTime">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="attendanceIsHoliday">
+                            Día Festivo
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="attendanceIsVacation">
+                            Vacaciones
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notas</label>
+                    <textarea id="attendanceNotes" rows="3"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelAttendanceBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Payroll Modal -->
+    <div id="payrollModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="payrollModalTitle">Nueva Nómina</h3>
+                <button class="modal-close" id="closePayrollModal">&times;</button>
+            </div>
+            <form id="payrollForm" class="modal-body">
+                <input type="hidden" id="payrollId">
+                <div class="form-group">
+                    <label>Empleado *</label>
+                    <select id="payrollEmployeeId" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Período (YYYY-MM) *</label>
+                    <input type="month" id="payrollPeriodInput" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Horas Trabajadas</label>
+                        <input type="number" id="payrollHoursWorked" step="0.01" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Horas Extras</label>
+                        <input type="number" id="payrollOvertimeHours" step="0.01" value="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Salario Base (Q)</label>
+                    <input type="number" id="payrollBaseSalary" step="0.01" value="0">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Bonificaciones (Q)</label>
+                        <input type="number" id="payrollBonuses" step="0.01" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Descuentos (Q)</label>
+                        <input type="number" id="payrollDeductions" step="0.01" value="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Estado</label>
+                    <select id="payrollStatus">
+                        <option value="pending">Pendiente</option>
+                        <option value="confirmed">Confirmado</option>
+                        <option value="paid">Pagado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Fecha de Pago</label>
+                    <input type="date" id="payrollPaymentDate">
+                </div>
+                <div class="form-group">
+                    <label>ID Transferencia Bancaria</label>
+                    <input type="text" id="payrollBankTransferId">
+                </div>
+                <div class="form-group">
+                    <label>Notas</label>
+                    <textarea id="payrollNotes" rows="3"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelPayrollBtn">Cancelar</button>
+                    <button type="button" class="btn btn-info" id="calculatePayrollBtn">Calcular Automático</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+
