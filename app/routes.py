@@ -6,8 +6,29 @@ from sqlalchemy import func, and_, or_
 
 from app import db
 from app.models import Employee, Attendance, Payroll
+from app.locales.translations import get_translations, get_currency_info, translate
 
 api_bp = Blueprint('api', __name__)
+
+
+# ==================== LOCALIZACIÓN ====================
+
+@api_bp.route('/locale/<country_code>', methods=['GET'])
+def get_locale(country_code):
+    """Obtener traducciones y configuración de moneda para un país"""
+    try:
+        translations = get_translations(country_code)
+        currency_info = get_currency_info(country_code)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'translations': translations,
+                'currency': currency_info
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ==================== EMPLEADOS ====================
@@ -67,7 +88,9 @@ def create_employee():
         employee = Employee(
             name=data['name'],
             dni=data['dni'],
+            cuil=data.get('cuil'),
             nit=data.get('nit'),
+            country_code=data.get('country_code', 'GT'),
             address=data.get('address'),
             position=data['position'],
             hourly_rate=Decimal(str(data['hourly_rate'])),
@@ -108,8 +131,12 @@ def update_employee(employee_id):
             employee.name = data['name']
         if 'dni' in data:
             employee.dni = data['dni']
+        if 'cuil' in data:
+            employee.cuil = data['cuil']
         if 'nit' in data:
             employee.nit = data['nit']
+        if 'country_code' in data:
+            employee.country_code = data['country_code']
         if 'address' in data:
             employee.address = data['address']
         if 'position' in data:
@@ -483,8 +510,10 @@ def delete_payroll(payroll_id):
 
 @api_bp.route('/payrolls/calculate', methods=['POST'])
 def calculate_payroll():
-    """Calcular nómina automáticamente basándose en asistencias"""
+    """Calcular nómina automáticamente basándose en asistencias (multipaís)"""
     try:
+        from app.logic.calculators import get_calculator
+        
         data = request.json
         
         if not data.get('employee_id') or not data.get('period'):
@@ -515,33 +544,20 @@ def calculate_payroll():
             )
         ).all()
         
-        # Calcular horas trabajadas
-        total_hours = Decimal('0')
-        overtime_hours = Decimal('0')
-        regular_hours = Decimal('0')
-        
-        for att in attendances:
-            if att.hours_worked:
-                hours = Decimal(str(att.hours_worked))
-                total_hours += hours
-                # Considerar horas extras (más de 8 horas por día)
-                if hours > 8:
-                    regular_hours += Decimal('8')
-                    overtime_hours += (hours - Decimal('8'))
-                else:
-                    regular_hours += hours
-        
-        # Calcular salarios
-        hourly_rate = Decimal(str(employee.hourly_rate))
-        base_salary = regular_hours * hourly_rate
-        overtime_rate = hourly_rate * Decimal('1.5')  # 50% extra para horas extras
-        overtime_pay = overtime_hours * overtime_rate
+        # Obtener calculadora según el país del empleado
+        calculator = get_calculator(employee)
         
         # Bonificaciones y descuentos (pueden venir en el request)
         bonuses = Decimal(str(data.get('bonuses', 0)))
         deductions = Decimal(str(data.get('deductions', 0)))
         
-        total_amount = base_salary + overtime_pay + bonuses - deductions
+        # Calcular usando la calculadora del país
+        calculation_result = calculator.calculate_payroll(
+            attendances, 
+            data['period'],
+            bonuses,
+            deductions
+        )
         
         # Crear o actualizar nómina
         payroll = Payroll.query.filter_by(
@@ -551,10 +567,10 @@ def calculate_payroll():
         
         if payroll:
             # Actualizar nómina existente
-            payroll.base_salary = base_salary
-            payroll.hours_worked = regular_hours
-            payroll.overtime_hours = overtime_hours
-            payroll.overtime_pay = overtime_pay
+            payroll.base_salary = calculation_result['base_salary']
+            payroll.hours_worked = calculation_result['hours_worked']
+            payroll.overtime_hours = calculation_result['overtime_hours']
+            payroll.overtime_pay = calculation_result['overtime_pay']
             payroll.bonuses = bonuses
             payroll.deductions = deductions
             payroll.calculate_total()
@@ -563,10 +579,10 @@ def calculate_payroll():
             payroll = Payroll(
                 employee_id=data['employee_id'],
                 period=data['period'],
-                base_salary=base_salary,
-                hours_worked=regular_hours,
-                overtime_hours=overtime_hours,
-                overtime_pay=overtime_pay,
+                base_salary=calculation_result['base_salary'],
+                hours_worked=calculation_result['hours_worked'],
+                overtime_hours=calculation_result['overtime_hours'],
+                overtime_pay=calculation_result['overtime_pay'],
                 bonuses=bonuses,
                 deductions=deductions,
                 status='pending'
@@ -576,17 +592,24 @@ def calculate_payroll():
         
         db.session.commit()
         
+        # Preparar respuesta con información adicional según el país
+        response_data = payroll.to_dict()
+        response_data['summary'] = calculation_result.get('summary', {})
+        
+        # Para Argentina, incluir detalles de aportes
+        if employee.country_code == 'AR':
+            response_data['aportes'] = {
+                'jubilacion': float(calculation_result.get('jubilacion', 0)),
+                'obra_social': float(calculation_result.get('obra_social', 0)),
+                'pami': float(calculation_result.get('pami', 0)),
+                'total_aportes': float(calculation_result.get('total_aportes', 0)),
+                'gross_salary': float(calculation_result.get('gross_salary', 0)),
+            }
+        
         return jsonify({
             'success': True,
-            'data': payroll.to_dict(),
+            'data': response_data,
             'message': 'Nómina calculada exitosamente',
-            'summary': {
-                'total_hours': float(total_hours),
-                'regular_hours': float(regular_hours),
-                'overtime_hours': float(overtime_hours),
-                'base_salary': float(base_salary),
-                'overtime_pay': float(overtime_pay)
-            }
         }), 200
         
     except Exception as e:
@@ -651,4 +674,3 @@ def get_summary_report():
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
-

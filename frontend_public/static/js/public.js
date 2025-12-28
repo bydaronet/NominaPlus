@@ -31,11 +31,66 @@ async function apiCall(endpoint, options = {}) {
     }
 }
 
+// Localization System
+const i18n = {
+    translations: {},
+    currency: { code: 'GTQ', symbol: 'Q', locale: 'es-GT' },
+    
+    async loadLocale(countryCode = 'GT') {
+        try {
+            const response = await apiCall(`/locale/${countryCode}`);
+            if (response.success) {
+                this.translations = response.data.translations;
+                this.currency = response.data.currency;
+            }
+        } catch (error) {
+            console.error('Error loading locale:', error);
+        }
+    },
+    
+    t(key, defaultValue = null) {
+        return this.translations[key] || defaultValue || key;
+    },
+    
+    getCurrencyInfo() {
+        return this.currency;
+    }
+};
+
 // Utility Functions
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('es-GT', {
+function formatCurrency(amount, countryCode = null) {
+    if (!amount && amount !== 0) return '-';
+    
+    // Si se especifica un país, usar su moneda
+    if (countryCode) {
+        // Cargar locale si no está cargado
+        return new Promise(async (resolve) => {
+            await i18n.loadLocale(countryCode);
+            const currency = i18n.getCurrencyInfo();
+            resolve(new Intl.NumberFormat(currency.locale, {
+                style: 'currency',
+                currency: currency.code,
+                minimumFractionDigits: 2,
+            }).format(amount));
+        });
+    }
+    
+    // Usar locale actual
+    const currency = i18n.getCurrencyInfo();
+    return new Intl.NumberFormat(currency.locale, {
         style: 'currency',
-        currency: 'GTQ',
+        currency: currency.code,
+        minimumFractionDigits: 2,
+    }).format(amount);
+}
+
+// Versión síncrona para uso inmediato
+function formatCurrencySync(amount, countryCode = null) {
+    if (!amount && amount !== 0) return '-';
+    const currency = i18n.getCurrencyInfo();
+    return new Intl.NumberFormat(currency.locale, {
+        style: 'currency',
+        currency: currency.code,
         minimumFractionDigits: 2,
     }).format(amount);
 }
@@ -69,6 +124,7 @@ function showNotification(message, type = 'info') {
 
 // App State
 let currentEmployee = null;
+let currentLocale = null;
 
 // Access Form
 document.getElementById('accessForm').addEventListener('submit', async (e) => {
@@ -109,6 +165,9 @@ async function handleAccess() {
             
             // Store employee and show dashboard
             currentEmployee = employee;
+            // Cargar locale del empleado
+            await i18n.loadLocale(employee.country_code || 'GT');
+            currentLocale = employee.country_code || 'GT';
             showEmployeeDashboard(employee);
         }
     } catch (error) {
@@ -124,6 +183,11 @@ function showEmployeeDashboard(employee) {
     
     document.getElementById('employeeName').textContent = employee.name;
     document.getElementById('employeePosition').textContent = employee.position;
+    
+    // Actualizar títulos con traducciones
+    const t = i18n.translations;
+    document.querySelector('#employeeDashboard .section h3').textContent = t.payrolls || 'Mis Nóminas';
+    document.querySelectorAll('#employeeDashboard .section h3')[1].textContent = t.attendances || 'Mis Asistencias';
     
     loadEmployeeData(employee.id);
 }
@@ -156,7 +220,7 @@ async function loadPayrolls(employeeId) {
             document.getElementById('totalPayrollsCount').textContent = payrolls.length;
             
             const totalEarnings = payrolls.reduce((sum, p) => sum + (p.total_amount || 0), 0);
-            document.getElementById('totalEarnings').textContent = formatCurrency(totalEarnings);
+            document.getElementById('totalEarnings').textContent = formatCurrencySync(totalEarnings, currentLocale);
             
             // Render payrolls list
             renderPayrollsList(payrolls);
@@ -191,8 +255,8 @@ function renderPayrollsList(payrolls) {
         return `
             <div class="payroll-item" onclick="showPayrollDetail(${payroll.id})">
                 <div class="payroll-item-header">
-                    <h4>Nómina - ${payroll.period}</h4>
-                    <span class="amount">${formatCurrency(payroll.total_amount || 0)}</span>
+                    <h4>${i18n.t('payroll', 'Nómina')} - ${payroll.period}</h4>
+                    <span class="amount">${formatCurrencySync(payroll.total_amount || 0, currentLocale)}</span>
                 </div>
                 <div class="payroll-item-details">
                     <div class="detail">
@@ -206,8 +270,8 @@ function renderPayrollsList(payrolls) {
                         <span>${payroll.hours_worked ? payroll.hours_worked.toFixed(2) + 'h' : '-'}</span>
                     </div>
                     <div class="detail">
-                        <label>Salario Base</label>
-                        <span>${formatCurrency(payroll.base_salary || 0)}</span>
+                        <label>${i18n.t('base_salary', 'Salario Base')}</label>
+                        <span>${formatCurrencySync(payroll.base_salary || 0, currentLocale)}</span>
                     </div>
                     ${payroll.payment_date ? `
                     <div class="detail">

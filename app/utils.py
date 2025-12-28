@@ -49,11 +49,27 @@ def parse_time(time_string: str) -> Optional[datetime.time]:
             return None
 
 
-def format_currency(amount: Decimal) -> str:
+def format_currency(amount: Decimal, country_code: str = 'GT') -> str:
     """
-    Formatea un monto como moneda
+    Formatea un monto como moneda según el país
     """
-    return f"Q{amount:,.2f}"
+    from app.locales.translations import get_currency_info
+    
+    currency_info = get_currency_info(country_code)
+    symbol = currency_info['symbol']
+    
+    # Formatear con separadores de miles y decimales
+    formatted = f"{amount:,.2f}"
+    
+    # Ajustar formato según el país
+    if country_code == 'AR':
+        # Argentina usa punto para miles y coma para decimales
+        formatted = formatted.replace(',', 'X').replace('.', ',').replace('X', '.')
+    elif country_code == 'ES':
+        # España usa punto para miles y coma para decimales
+        formatted = formatted.replace(',', 'X').replace('.', ',').replace('X', '.')
+    
+    return f"{symbol}{formatted}"
 
 
 def calculate_overtime_rate(base_rate: Decimal, multiplier: Decimal = Decimal('1.5')) -> Decimal:

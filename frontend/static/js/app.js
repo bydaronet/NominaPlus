@@ -4,13 +4,68 @@ const appState = {
     employees: [],
     attendances: [],
     payrolls: [],
+    locales: {}, // Cache de traducciones por país
+    currentLocale: null, // Locale actual (para el contexto)
+};
+
+// Localization System
+const i18n = {
+    translations: {},
+    currency: { code: 'GTQ', symbol: 'Q', locale: 'es-GT' },
+    
+    async loadLocale(countryCode = 'GT') {
+        try {
+            // Verificar cache
+            if (appState.locales[countryCode]) {
+                this.translations = appState.locales[countryCode].translations;
+                this.currency = appState.locales[countryCode].currency;
+                return;
+            }
+            
+            // Cargar desde API
+            const response = await localeAPI.getLocale(countryCode);
+            if (response.success) {
+                this.translations = response.data.translations;
+                this.currency = response.data.currency;
+                appState.locales[countryCode] = response.data;
+            }
+        } catch (error) {
+            console.error('Error loading locale:', error);
+            // Fallback a GT
+            if (countryCode !== 'GT') {
+                await this.loadLocale('GT');
+            }
+        }
+    },
+    
+    t(key, defaultValue = null) {
+        return this.translations[key] || defaultValue || key;
+    },
+    
+    getCurrencyInfo() {
+        return this.currency;
+    }
 };
 
 // Utility Functions
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('es-GT', {
+function formatCurrency(amount, countryCode = null) {
+    if (!amount && amount !== 0) return '-';
+    
+    // Si se especifica un país, usar su moneda
+    if (countryCode && appState.locales[countryCode]) {
+        const currency = appState.locales[countryCode].currency;
+        return new Intl.NumberFormat(currency.locale, {
+            style: 'currency',
+            currency: currency.code,
+            minimumFractionDigits: 2,
+        }).format(amount);
+    }
+    
+    // Usar locale actual
+    const currency = i18n.getCurrencyInfo();
+    return new Intl.NumberFormat(currency.locale, {
         style: 'currency',
-        currency: 'GTQ',
+        currency: currency.code,
         minimumFractionDigits: 2,
     }).format(amount);
 }
@@ -84,18 +139,52 @@ function switchPage(page) {
         targetPage.classList.add('active');
         appState.currentPage = page;
         
-        // Update page title
-        const titles = {
-            dashboard: 'Dashboard',
-            employees: 'Empleados',
-            attendances: 'Asistencias',
-            payrolls: 'Nóminas',
-        };
-        document.getElementById('pageTitle').textContent = titles[page] || 'Dashboard';
+        // Update page title (usará traducciones después de cargar)
+        updatePageTitle(page);
         
         // Load page data
         loadPageData(page);
     }
+}
+
+async function updatePageTitle(page) {
+    // Cargar locale por defecto si no hay uno cargado
+    if (!i18n.translations || Object.keys(i18n.translations).length === 0) {
+        await i18n.loadLocale('GT');
+    }
+    
+    const titles = {
+        dashboard: 'Dashboard',
+        employees: i18n.t('employees', 'Empleados'),
+        attendances: i18n.t('attendances', 'Asistencias'),
+        payrolls: i18n.t('payrolls', 'Nóminas'),
+    };
+    document.getElementById('pageTitle').textContent = titles[page] || 'Dashboard';
+    
+    // Actualizar todos los textos de la interfaz
+    updateUITexts();
+}
+
+function updateUITexts() {
+    const t = i18n.translations;
+    
+    // Navegación
+    const navPayrolls = document.getElementById('navPayrolls');
+    if (navPayrolls) navPayrolls.textContent = t.payrolls || 'Nóminas';
+    
+    // Dashboard stats
+    const statPayrollsLabel = document.getElementById('statPayrollsLabel');
+    if (statPayrollsLabel) statPayrollsLabel.textContent = `${t.payrolls || 'Nóminas'} del Mes`;
+    
+    // Página de nóminas
+    const payrollsPageTitle = document.getElementById('payrollsPageTitle');
+    if (payrollsPageTitle) payrollsPageTitle.textContent = `Gestión de ${t.payrolls || 'Nóminas'}`;
+    
+    const addPayrollBtnText = document.getElementById('addPayrollBtnText');
+    if (addPayrollBtnText) addPayrollBtnText.textContent = `Nueva ${t.payroll || 'Nómina'}`;
+    
+    const loadingPayrolls = document.getElementById('loadingPayrolls');
+    if (loadingPayrolls) loadingPayrolls.textContent = `Cargando ${t.payrolls || 'nóminas'}...`;
 }
 
 function loadPageData(page) {
@@ -149,11 +238,17 @@ async function loadRecentActivity() {
         const activities = [];
         
         if (payrollsRes.success && payrollsRes.data.length > 0) {
+            // Cargar locale si no está cargado
+            if (!i18n.translations || Object.keys(i18n.translations).length === 0) {
+                await i18n.loadLocale('GT');
+            }
+            const t = i18n.translations;
+            
             const recentPayrolls = payrollsRes.data.slice(0, 5);
             recentPayrolls.forEach(payroll => {
                 activities.push({
                     type: 'payroll',
-                    message: `Nómina de ${payroll.employee_name} - ${payroll.period}`,
+                    message: `${t.payroll || 'Nómina'} de ${payroll.employee_name} - ${payroll.period}`,
                     date: payroll.created_at,
                 });
             });
@@ -201,13 +296,20 @@ function renderEmployeesTable(employees) {
         return;
     }
     
-    tbody.innerHTML = employees.map(emp => `
+    tbody.innerHTML = employees.map(async (emp) => {
+        // Cargar locale del empleado si no está en cache
+        if (!appState.locales[emp.country_code]) {
+            await i18n.loadLocale(emp.country_code || 'GT');
+        }
+        const currency = appState.locales[emp.country_code]?.currency || i18n.getCurrencyInfo();
+        
+        return `
         <tr>
             <td>${emp.id}</td>
             <td>${emp.name}</td>
-            <td>${emp.dni}</td>
+            <td>${emp.dni}${emp.cuil ? ` / ${emp.cuil}` : ''}</td>
             <td>${emp.position}</td>
-            <td>${formatCurrency(emp.hourly_rate)}</td>
+            <td>${formatCurrency(emp.hourly_rate, emp.country_code)}</td>
             <td>
                 <span class="badge ${emp.is_active ? 'badge-success' : 'badge-danger'}">
                     ${emp.is_active ? 'Activo' : 'Inactivo'}
@@ -222,7 +324,40 @@ function renderEmployeesTable(employees) {
                 </button>
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
+    
+    // Cargar locales en paralelo
+    Promise.all(employees.map(emp => 
+        appState.locales[emp.country_code] ? Promise.resolve() : i18n.loadLocale(emp.country_code || 'GT')
+    )).then(() => {
+        // Re-renderizar con las traducciones cargadas
+        tbody.innerHTML = employees.map(emp => {
+            const currency = appState.locales[emp.country_code]?.currency || i18n.getCurrencyInfo();
+            return `
+            <tr>
+                <td>${emp.id}</td>
+                <td>${emp.name}</td>
+                <td>${emp.dni}${emp.cuil ? ` / ${emp.cuil}` : ''}</td>
+                <td>${emp.position}</td>
+                <td>${formatCurrency(emp.hourly_rate, emp.country_code)}</td>
+                <td>
+                    <span class="badge ${emp.is_active ? 'badge-success' : 'badge-danger'}">
+                        ${emp.is_active ? 'Activo' : 'Inactivo'}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="editEmployee(${emp.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteEmployee(${emp.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        }).join('');
+    });
 }
 
 function populateEmployeeSelects() {
@@ -270,22 +405,67 @@ function initEmployeeModal() {
     });
 }
 
-function openEmployeeModal(employeeId = null) {
+async function openEmployeeModal(employeeId = null) {
     const modal = document.getElementById('employeeModal');
     const form = document.getElementById('employeeForm');
     const title = document.getElementById('employeeModalTitle');
     
     form.reset();
     document.getElementById('employeeId').value = '';
+    document.getElementById('employeeCountryCode').value = 'GT';
+    
+    // Cargar locale por defecto
+    await i18n.loadLocale('GT');
+    updateEmployeeFormLabels('GT');
+    
+    // Listener para cambiar país (remover listeners anteriores si existen)
+    const countrySelect = document.getElementById('employeeCountryCode');
+    const newCountrySelect = countrySelect.cloneNode(true);
+    countrySelect.parentNode.replaceChild(newCountrySelect, countrySelect);
+    
+    newCountrySelect.addEventListener('change', async (e) => {
+        const countryCode = e.target.value;
+        await i18n.loadLocale(countryCode);
+        await updateEmployeeFormLabels(countryCode);
+    });
     
     if (employeeId) {
         title.textContent = 'Editar Empleado';
-        loadEmployeeData(employeeId);
+        await loadEmployeeData(employeeId);
     } else {
         title.textContent = 'Nuevo Empleado';
     }
     
     modal.classList.add('active');
+}
+
+async function updateEmployeeFormLabels(countryCode) {
+    // Cargar locale si no está en cache
+    if (!appState.locales[countryCode]) {
+        await i18n.loadLocale(countryCode);
+    }
+    
+    if (!appState.locales[countryCode]) return;
+    
+    const locale = appState.locales[countryCode];
+    const t = locale.translations;
+    const currency = locale.currency;
+    
+    // Actualizar etiquetas
+    document.getElementById('labelDni').textContent = `${t.dni || 'DNI'} *`;
+    document.getElementById('labelCuil').textContent = t.cuil || 'CUIL';
+    document.getElementById('labelHourlyRate').textContent = `${t.hourly_rate || 'Tarifa por Hora'} (${currency.symbol}) *`;
+    
+    // Mostrar/ocultar CUIL según el país
+    const cuilGroup = document.getElementById('cuilGroup');
+    if (countryCode === 'AR') {
+        cuilGroup.style.display = 'block';
+    } else {
+        cuilGroup.style.display = 'none';
+    }
+    
+    // Actualizar textos de la interfaz principal si es necesario
+    // (opcional: solo si quieres que toda la UI cambie cuando editas un empleado)
 }
 
 function closeEmployeeModal() {
@@ -299,10 +479,17 @@ async function loadEmployeeData(id) {
         
         if (response.success) {
             const emp = response.data;
+            
+            // Cargar locale del empleado
+            await i18n.loadLocale(emp.country_code || 'GT');
+            updateEmployeeFormLabels(emp.country_code || 'GT');
+            
             document.getElementById('employeeId').value = emp.id;
             document.getElementById('employeeName').value = emp.name || '';
             document.getElementById('employeeDni').value = emp.dni || '';
+            document.getElementById('employeeCuil').value = emp.cuil || '';
             document.getElementById('employeeNit').value = emp.nit || '';
+            document.getElementById('employeeCountryCode').value = emp.country_code || 'GT';
             document.getElementById('employeePosition').value = emp.position || '';
             document.getElementById('employeeHourlyRate').value = emp.hourly_rate || '';
             document.getElementById('employeePhone').value = emp.phone || '';
@@ -322,10 +509,13 @@ async function saveEmployee() {
     try {
         showLoading();
         const id = document.getElementById('employeeId').value;
+        const countryCode = document.getElementById('employeeCountryCode').value;
         const data = {
             name: document.getElementById('employeeName').value,
             dni: document.getElementById('employeeDni').value,
-            nit: document.getElementById('employeeNit').value,
+            cuil: document.getElementById('employeeCuil').value || null,
+            nit: document.getElementById('employeeNit').value || null,
+            country_code: countryCode,
             position: document.getElementById('employeePosition').value,
             hourly_rate: parseFloat(document.getElementById('employeeHourlyRate').value),
             phone: document.getElementById('employeePhone').value,
@@ -597,7 +787,7 @@ async function loadPayrolls() {
         
         if (response.success) {
             appState.payrolls = response.data;
-            renderPayrollsTable(response.data);
+            await renderPayrollsTable(response.data);
         }
     } catch (error) {
         showNotification('Error al cargar nóminas: ' + error.message, 'error');
@@ -606,24 +796,43 @@ async function loadPayrolls() {
     }
 }
 
-function renderPayrollsTable(payrolls) {
+async function renderPayrollsTable(payrolls) {
     const tbody = document.getElementById('payrollsTableBody');
     
     if (payrolls.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No hay nóminas registradas</td></tr>';
+        await i18n.loadLocale('GT');
+        const t = i18n.translations;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center">No hay ${t.payrolls || 'nóminas'} registradas</td></tr>`;
         return;
     }
     
+    // Cargar locales de todos los empleados
+    const employeeIds = [...new Set(payrolls.map(p => p.employee_id))];
+    const employees = appState.employees.filter(e => employeeIds.includes(e.id));
+    
+    await Promise.all(employees.map(emp => 
+        appState.locales[emp.country_code] ? Promise.resolve() : i18n.loadLocale(emp.country_code || 'GT')
+    ));
+    
+    // Crear mapa de empleado a país
+    const employeeCountryMap = {};
+    employees.forEach(emp => {
+        employeeCountryMap[emp.id] = emp.country_code || 'GT';
+    });
+    
     tbody.innerHTML = payrolls.map(payroll => {
+        const countryCode = employeeCountryMap[payroll.employee_id] || 'GT';
+        const locale = appState.locales[countryCode];
+        const t = locale?.translations || {};
         const statusBadges = {
             pending: 'badge-warning',
             confirmed: 'badge-info',
             paid: 'badge-success',
         };
         const statusLabels = {
-            pending: 'Pendiente',
-            confirmed: 'Confirmado',
-            paid: 'Pagado',
+            pending: t.status_pending || 'Pendiente',
+            confirmed: t.status_confirmed || 'Confirmado',
+            paid: t.status_paid || 'Pagado',
         };
         
         return `
@@ -631,8 +840,8 @@ function renderPayrollsTable(payrolls) {
                 <td>${payroll.employee_name || 'N/A'}</td>
                 <td>${payroll.period}</td>
                 <td>${payroll.hours_worked ? payroll.hours_worked.toFixed(2) + 'h' : '-'}</td>
-                <td>${formatCurrency(payroll.base_salary || 0)}</td>
-                <td><strong>${formatCurrency(payroll.total_amount || 0)}</strong></td>
+                <td>${formatCurrency(payroll.base_salary || 0, countryCode)}</td>
+                <td><strong>${formatCurrency(payroll.total_amount || 0, countryCode)}</strong></td>
                 <td>
                     <span class="badge ${statusBadges[payroll.status] || 'badge-secondary'}">
                         ${statusLabels[payroll.status] || payroll.status}
@@ -675,10 +884,16 @@ function initPayrollModal() {
     });
 }
 
-function openPayrollModal(payrollId = null) {
+async function openPayrollModal(payrollId = null) {
     const modal = document.getElementById('payrollModal');
     const form = document.getElementById('payrollForm');
     const title = document.getElementById('payrollModalTitle');
+    
+    // Cargar locale si no está cargado
+    if (!i18n.translations || Object.keys(i18n.translations).length === 0) {
+        await i18n.loadLocale('GT');
+    }
+    const t = i18n.translations;
     
     form.reset();
     document.getElementById('payrollId').value = '';
@@ -688,10 +903,10 @@ function openPayrollModal(payrollId = null) {
         `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     
     if (payrollId) {
-        title.textContent = 'Editar Nómina';
-        loadPayrollData(payrollId);
+        title.textContent = `Editar ${t.payroll || 'Nómina'}`;
+        await loadPayrollData(payrollId);
     } else {
-        title.textContent = 'Nueva Nómina';
+        title.textContent = `Nueva ${t.payroll || 'Nómina'}`;
     }
     
     modal.classList.add('active');
@@ -799,7 +1014,8 @@ async function savePayroll() {
         }
         
         if (response.success) {
-            showNotification(response.message || 'Nómina guardada exitosamente', 'success');
+            const t = i18n.translations;
+            showNotification(response.message || `${t.payroll || 'Nómina'} guardada exitosamente`, 'success');
             closePayrollModal();
             loadPayrolls();
         }
@@ -815,18 +1031,24 @@ async function editPayroll(id) {
 }
 
 async function deletePayroll(id) {
-    if (!confirm('¿Está seguro de eliminar esta nómina?')) return;
+    // Cargar locale si no está cargado
+    if (!i18n.translations || Object.keys(i18n.translations).length === 0) {
+        await i18n.loadLocale('GT');
+    }
+    const t = i18n.translations;
+    
+    if (!confirm(`¿Está seguro de eliminar esta ${t.payroll || 'nómina'}?`)) return;
     
     try {
         showLoading();
         const response = await payrollsAPI.delete(id);
         
         if (response.success) {
-            showNotification('Nómina eliminada exitosamente', 'success');
+            showNotification(`${t.payroll || 'Nómina'} eliminada exitosamente`, 'success');
             loadPayrolls();
         }
     } catch (error) {
-        showNotification('Error al eliminar nómina: ' + error.message, 'error');
+        showNotification(`Error al eliminar ${t.payroll || 'nómina'}: ` + error.message, 'error');
     } finally {
         hideLoading();
     }
@@ -839,7 +1061,13 @@ function initFilters() {
 }
 
 // Initialize App
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Cargar locale por defecto
+    await i18n.loadLocale('GT');
+    
+    // Actualizar textos de la interfaz
+    updateUITexts();
+    
     initNavigation();
     initEmployeeModal();
     initEmployeeFilters();

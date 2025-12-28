@@ -111,9 +111,15 @@ const reportsAPI = {
     },
 };
 
+// Locale API
+const localeAPI = {
+    getLocale: (countryCode) => apiCall(`/locale/${countryCode}`),
+};
+
 // Export APIs
 window.employeesAPI = employeesAPI;
 window.attendancesAPI = attendancesAPI;
 window.payrollsAPI = payrollsAPI;
 window.reportsAPI = reportsAPI;
+window.localeAPI = localeAPI;
 

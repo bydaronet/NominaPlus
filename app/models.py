@@ -10,7 +10,9 @@ class Employee(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     dni = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    cuil = db.Column(db.String(15), unique=True, nullable=True, index=True)  # Para Argentina: XX-XXXXXXXX-X
     nit = db.Column(db.String(20), unique=True, nullable=True)
+    country_code = db.Column(db.String(2), default='GT', nullable=False)  # GT, AR, ES, etc.
     address = db.Column(db.Text, nullable=True)
     position = db.Column(db.String(100), nullable=False)
     hourly_rate = db.Column(db.Numeric(10, 2), nullable=False)
@@ -31,7 +33,9 @@ class Employee(db.Model):
             'id': self.id,
             'name': self.name,
             'dni': self.dni,
+            'cuil': self.cuil,
             'nit': self.nit,
+            'country_code': self.country_code,
             'address': self.address,
             'position': self.position,
             'hourly_rate': float(self.hourly_rate) if self.hourly_rate else None,

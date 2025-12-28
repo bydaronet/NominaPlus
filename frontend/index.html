@@ -27,7 +27,7 @@
                 <i class="fas fa-clock"></i> <span>Asistencias</span>
             </a>
             <a href="#payrolls" class="nav-item" data-page="payrolls">
-                <i class="fas fa-file-invoice-dollar"></i> <span>Nóminas</span>
+                <i class="fas fa-file-invoice-dollar"></i> <span id="navPayrolls">Nóminas</span>
             </a>
         </nav>
     </aside>
@@ -65,7 +65,7 @@
                         </div>
                         <div class="stat-info">
                             <h3 id="totalPayrolls">0</h3>
-                            <p>Nóminas del Mes</p>
+                            <p id="statPayrollsLabel">Nóminas del Mes</p>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -173,9 +173,9 @@
             <!-- Payrolls Page -->
             <div id="payrolls" class="page">
                 <div class="page-header">
-                    <h2>Gestión de Nóminas</h2>
+                    <h2 id="payrollsPageTitle">Gestión de Nóminas</h2>
                     <button class="btn btn-primary" id="addPayrollBtn">
-                        <i class="fas fa-plus"></i> Nueva Nómina
+                        <i class="fas fa-plus"></i> <span id="addPayrollBtnText">Nueva Nómina</span>
                     </button>
                 </div>
                 <div class="filters">
@@ -206,7 +206,7 @@
                         </thead>
                         <tbody id="payrollsTableBody">
                             <tr>
-                                <td colspan="7" class="loading">Cargando nóminas...</td>
+                                <td colspan="7" class="loading" id="loadingPayrolls">Cargando nóminas...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -231,20 +231,34 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>DNI *</label>
+                        <label id="labelDni">DNI *</label>
                         <input type="text" id="employeeDni" required>
+                    </div>
+                    <div class="form-group" id="cuilGroup" style="display: none;">
+                        <label id="labelCuil">CUIL</label>
+                        <input type="text" id="employeeCuil" placeholder="XX-XXXXXXXX-X">
                     </div>
                     <div class="form-group">
                         <label>NIT</label>
                         <input type="text" id="employeeNit">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Posición *</label>
-                    <input type="text" id="employeePosition" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>País *</label>
+                        <select id="employeeCountryCode" required>
+                            <option value="GT">Guatemala</option>
+                            <option value="AR">Argentina</option>
+                            <option value="ES">España</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Posición *</label>
+                        <input type="text" id="employeePosition" required>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label>Tarifa por Hora (Q) *</label>
+                    <label id="labelHourlyRate">Tarifa por Hora *</label>
                     <input type="number" id="employeeHourlyRate" step="0.01" required>
                 </div>
                 <div class="form-row">
