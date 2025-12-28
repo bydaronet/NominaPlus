@@ -317,3 +317,4 @@ Este proyecto está bajo la Licencia MIT.
 - Flask y la comunidad de Python
 - PostgreSQL
 
+# NominaPlus
